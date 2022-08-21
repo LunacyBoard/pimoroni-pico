@@ -96,10 +96,8 @@ def draw_badge(img_state, BADGE_IMAGE, company, name, detail1_title, detail1_tex
         code = qrcode.QRCode()                
         code.set_text(url)
         size, _ = measure_qr_code(104, code)
-        print(size)
         top = int((HEIGHT / 2) - (size / 2))
         left = WIDTH - size
-        print(left)
         display.pen(15)
         display.rectangle(left - 3 , 0, size + 2 , HEIGHT)
         draw_qr_code(left, top, 104, code)
@@ -203,34 +201,51 @@ def format_data_lines(datalines):
 badge_state = 0
 b_text_file = "badgeA.txt"
 b_image_file = "badge-imageA.bin"
+state = {
+    "st_state" : badge_state,
+    "st_text_file" : b_text_file,
+    "st_image_file" : b_image_file
+    }
+
+# Reload state from sleep
+badger_os.state_load("badgeapp", state)
+changed = not badger2040.woken_by_button()
 
 while True:
     # Buttons A-C switch between different cards
     if display.pressed(badger2040.BUTTON_A):
-        b_text_file = "badgeA.txt"
-        b_image_file = "badge-imageA.bin"
+        state["st_text_file"] = "badgeA.txt"
+        state["st_image_file"] = "badge-imageA.bin"
+        changed = True
         
     if display.pressed(badger2040.BUTTON_B):
-        b_text_file = "badgeB.txt"
-        b_image_file = "badge-imageB.bin"
+        state["st_text_file"] = "badgeB.txt"
+        state["st_image_file"] = "badge-imageB.bin"
+        changed = True
         
     if display.pressed(badger2040.BUTTON_C):
-        b_text_file = "badgeC.txt"
-        b_image_file = "badge-imageC.bin"
+        state["st_text_file"] = "badgeC.txt"
+        state["st_image_file"] = "badge-imageC.bin"
+        changed = True
         
     # UP & DOWN switch between image displayed - currently the image or the QR code from the last row of text    
     if display.pressed(badger2040.BUTTON_UP):
-        badge_state = badge_state -1 if badge_state > 0 else BADGE_STATES - 1
+        state["st_state"] = state["st_state"] -1 if state["st_state"] > 0 else BADGE_STATES - 1
+        changed = True
         
     if display.pressed(badger2040.BUTTON_DOWN):
-        badge_state = badge_state + 1 if badge_state < BADGE_STATES - 1  else 0 
-
-    get_badge_data = load_data(filename = b_text_file)
-    get_badge_image = load_image(filename = b_image_file)
-    get_badge_data_f = format_data_lines(get_badge_data)
-    draw_badge(badge_state, get_badge_image, *get_badge_data_f)
-
-    display.update()
+        state["st_state"] = state["st_state"] + 1 if state["st_state"] < BADGE_STATES - 1  else 0
+        changed = True
+        
+    if changed:    
+        get_badge_data = load_data(filename = state["st_text_file"])
+        get_badge_image = load_image(filename = state["st_image_file"])
+        get_badge_data_f = format_data_lines(get_badge_data)
+        draw_badge(state["st_state"], get_badge_image, *get_badge_data_f)
+        display.update()
+        # Save the state
+        badger_os.state_save("badgeapp", state)
+        changed = False
 
     # If on battery, halt the Badger to save power, it will wake up if any of the front buttons are pressed
     display.halt()
